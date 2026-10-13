@@ -6,6 +6,10 @@ pipeline {
         disableConcurrentBuilds()
     }
 
+    triggers {
+        pollSCM('H/5 * * * *')
+    }
+
     environment {
         IMAGE_NAME = 'mediexplain-ai'
         KUBE_CONTEXT = 'jenkins-deployer'
