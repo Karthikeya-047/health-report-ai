@@ -75,10 +75,11 @@ pipeline {
                         set -eu
 
                         kubectl --context="$KUBE_CONTEXT" \
-                          get nodes
+                          apply -f k8s/mediexplain.yaml
 
                         kubectl --context="$KUBE_CONTEXT" \
-                          apply -f k8s/mediexplain.yaml
+                          set image deployment/mediexplain-ai \
+                          mediexplain-ai="$IMAGE_NAME:$BUILD_NUMBER"
 
                         kubectl --context="$KUBE_CONTEXT" \
                           rollout status deployment/mediexplain-ai \
