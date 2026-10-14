@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mediexplain-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mediexplain-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mediexplain-ai
+  template:
+    metadata:
+      labels:
+        app: mediexplain-ai
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: mediexplain-ai
+          image: mediexplain-ai:latest
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8081
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 20
+          volumeMounts:
+            - name: app-data
+              mountPath: /app/data
+      volumes:
+        - name: app-data
+          persistentVolumeClaim:
+            claimName: mediexplain-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mediexplain-ai
+spec:
+  type: ClusterIP
+  selector:
+    app: mediexplain-ai
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8081

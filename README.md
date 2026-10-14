@@ -45,3 +45,71 @@ mvn package
 ## Privacy and scope
 
 BCrypt hashes passwords. Report and conversation lookups are scoped to the authenticated owner. Gemini requests include extracted report text (up to 24,000 characters), recent chat turns, and the question. Do not upload documents unless you are comfortable processing them with your configured AI provider. Answers are educational, not diagnosis or treatment; discuss results with a qualified clinician. Local H2 storage is intended for development/demo use, not production deployment.
+
+
+## Docker deployment (local)
+
+Requirements: Docker Engine with permission to build and run containers.
+
+Build the image:
+
+```bash
+docker build -t mediexplain-ai:latest .
+```
+
+Create persistent storage and run the application:
+
+```bash
+docker volume create mediexplain-data
+
+docker run -d \
+  --name mediexplain-ai \
+  --restart unless-stopped \
+  -p 127.0.0.1:8080:8081 \
+  -v mediexplain-data:/app/data \
+  mediexplain-ai:latest
+```
+
+Open <http://127.0.0.1:8080>. The named volume stores the H2
+database and uploaded reports outside the container. Removing the
+container does not remove the volume.
+
+To enable Gemini Q&A, configure `GEMINI_API_KEY` as a container
+environment variable. Never commit the real key to source control.
+
+## Local Kubernetes deployment
+
+The manifests in `k8s/` are intended as a local Minikube example.
+They use `imagePullPolicy: Never`, so the image must be loaded into
+Minikube before deployment:
+
+```bash
+minikube start -p mediexplain --driver=docker
+docker build -t mediexplain-ai:latest .
+minikube -p mediexplain image load mediexplain-ai:latest
+
+kubectl --context=mediexplain apply -f k8s/mediexplain.yaml
+kubectl --context=mediexplain rollout status \
+  deployment/mediexplain-ai --timeout=180s
+
+kubectl --context=mediexplain port-forward \
+  service/mediexplain-ai 8086:8080
+```
+
+Open <http://127.0.0.1:8086> while port forwarding is running.
+The Kubernetes manifest requests persistent storage for the database
+and uploaded reports.
+
+## Jenkins CI/CD example
+
+The root `Jenkinsfile` demonstrates building and testing the Docker
+image and deploying it to a local Minikube cluster. It requires a
+Jenkins installation with Docker CLI access, `kubectl`, and a
+Secret file credential named `mediexplain-kubeconfig`.
+
+The pipeline's image-transfer step assumes the Minikube Docker
+container is named `mediexplain`. Adapt these settings for other
+cluster drivers or deployment environments. Access to the host Docker
+socket grants Jenkins jobs substantial control over the host, so use
+this as a trusted local development example rather than an
+internet-exposed production configuration.
